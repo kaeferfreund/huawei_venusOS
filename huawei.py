@@ -51,6 +51,7 @@ class modbusQuerry:
 
     def _update(self):
         try:
+            self.thisInverter.connect()
             # pv inverter
             ac_c1 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseACurrent)
             dbusservice['pvinverter.pv0']['/Ac/L1/Current'] = ac_c1
