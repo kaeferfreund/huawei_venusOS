@@ -17,4 +17,4 @@ In the Python file, you should put the IP of your inverter
 
 2. test via `python3 huawei.py`
 
-3. Add the command to the file /data/rc.local for autostart:
+3. Copy the run file to /opt/victronenergy/service/dbus-huawei:

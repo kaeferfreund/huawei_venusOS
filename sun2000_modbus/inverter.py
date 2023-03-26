@@ -3,6 +3,7 @@ import time
 
 from pymodbus.client.sync import ModbusTcpClient
 from pymodbus.exceptions import ModbusIOException, ConnectionException
+from pymodbus.transaction import ModbusRtuFramer
 
 from . import datatypes
 
@@ -10,34 +11,44 @@ logging.basicConfig(level=logging.INFO)
 
 
 class Sun2000:
-    def __init__(self, host, port=502, timeout=5, wait=2, unit=0):
+    def __init__(self, host, port=502, unit=0, timeout=5, wait=5): # some models need unit=1
         self.wait = wait
         self.connected = False
-        self.unit = unit
-        self.inverter = ModbusTcpClient(host, port, timeout=timeout)
+        self.host = host
+        self.unit = 1
+        self.port = port
+        self.timeout = timeout
+        self.inverter = ModbusTcpClient(host, port, unit=unit, timeout=timeout)
 
     def connect(self):
         if not self.connected:
-            self.connected = self.inverter.connect()
+            self.inverter.connect()
             time.sleep(self.wait)
-            if self.connected:
+            if self.isConnected():
                 logging.info('Successfully connected to inverter')
+                self.connected = True
+                return True
             else:
                 logging.error('Connection to inverter failed')
+                return False
+
+    def isConnected(self):
+        """Check if underlying tcp socket is open"""
+        return self.inverter.is_socket_open()
 
     def read_raw_value(self, register):
         if not self.connected:
+            self.inverter.connect()
             raise ValueError('Inverter is not connected')
 
         try:
             register_value = self.inverter.read_holding_registers(register.value.address, register.value.quantity, unit=self.unit)
             if type(register_value) == ModbusIOException:
-                logging.error("Inverter unit did not respond")
                 self.connected = False
+                logging.error("Inverter unit did not respond")
                 raise register_value
         except ConnectionException:
             logging.error("A connection error occurred")
-            self.connected = False
             raise
 
         return datatypes.decode(register_value.encode()[1:], register.value.data_type)
@@ -68,8 +79,7 @@ class Sun2000:
         if end_address != 0 and end_address <= start_address:
             raise ValueError("end_address must be greater than start_address")
 
-        if not self.connected:
-            self.connected = False
+        if not self.isConnected():
             raise ValueError('Inverter is not connected')
 
         if end_address != 0:
@@ -78,11 +88,9 @@ class Sun2000:
             register_range_value = self.inverter.read_holding_registers(start_address, quantity, unit=self.unit)
             if type(register_range_value) == ModbusIOException:
                 logging.error("Inverter unit did not respond")
-                self.connected = False
                 raise register_range_value
         except ConnectionException:
             logging.error("A connection error occurred")
-            self.connected = False
             raise
 
         return datatypes.decode(register_range_value.encode()[1:], datatypes.DataType.MULTIDATA)

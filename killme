@@ -1,2 +1,0 @@
-#!/bin/sh
-kill $(pgrep -f 'python3 /data/huawei/huawei.py')

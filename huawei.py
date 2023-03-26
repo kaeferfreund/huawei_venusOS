@@ -45,13 +45,22 @@ DBusGMainLoop(set_as_default=True)
 class modbusQuerry:
     
     def __init__(self):
-        self.thisInverter = inverter.Sun2000(host='192.168.169.167', port=502, unit=1)
+        self.thisInverter = inverter.Sun2000(host='192.168.169.38', port=502, unit=1)
         self.thisInverter.connect()
         print("intialising")
 
     def _update(self):
-        try:
+        
             self.thisInverter.connect()
+            
+            if(self.thisInverter.connected == False):
+                dbusservice['pvinverter.pv0']['/Ac/L1/Power'] = 0
+                dbusservice['pvinverter.pv0']['/Ac/L2/Power'] = 0
+                dbusservice['pvinverter.pv0']['/Ac/L3/Power'] = 0
+                dbusservice['pvinverter.pv0']['/Ac/Power'] = 0
+                print("not connected")
+                return True
+        
             # pv inverter
             ac_c1 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseACurrent)
             dbusservice['pvinverter.pv0']['/Ac/L1/Current'] = ac_c1
@@ -87,11 +96,9 @@ class modbusQuerry:
             dbusservice['pvinverter.pv0']['/Ac/L2/Energy/Forward'] = round(energy/3.0, 2)
             dbusservice['pvinverter.pv0']['/Ac/L3/Energy/Forward'] = round(energy/3.0, 2)
 
-            dbusservice['pvinverter.pv0']['/Ac/Power'] = self.thisInverter.read(registers.InverterEquipmentRegister.ActivePower)
+            dbusservice['pvinverter.pv0']['/Ac/Power'] = self.thisInverter.read(registers.InverterEquipmentRegister.InputPower)
             
             return True
-        except Exception as ex:
-            print("Issues querying Kostal Plenticore -ERROR :", ex)
     # -----------------------------
     # Here is the bit you need to create multiple new services - try as much as possible timplement the Victron Dbus API requirements.
 
@@ -159,7 +166,7 @@ dbusservice['pvinverter.pv0'] = new_service(
     'com.victronenergy', 'pvinverter.pv0', 'pvinverter', 0, 20)
 
 # Everything done so just set a time to run an update function to update the data values every 1 second
-gobject.timeout_add(2000, Querry._update)
+gobject.timeout_add(10000, Querry._update)
 
 print("Connected to dbus, and switching over to gobject.MainLoop() (= event based)")
 mainloop = gobject.MainLoop()
@@ -169,4 +176,4 @@ if __name__ == "__main__":
     try:
         Querry._update()
     except Exception as ex:
-        print("Issues querying Kostal Plenticore -ERROR :", ex)
+        print("Issues querying Inverter -ERROR :", ex)
