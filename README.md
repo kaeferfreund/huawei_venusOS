@@ -17,4 +17,6 @@ In the Python file, you should put the IP of your inverter
 
 2. test via `python3 huawei.py`
 
-3. Copy the run file to /opt/victronenergy/service/dbus-huawei:
+3. Copy the services/run file  to `/opt/victronenergy/service/dbus-huawei` it will be copied to /services/dbus-huawei after each restart and will survive updates
+
+4. Restart to initiate the copy process
