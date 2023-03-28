@@ -48,10 +48,29 @@ class modbusQuerry:
         self.thisInverter = inverter.Sun2000(host='192.168.169.38', port=502, unit=1)
         self.thisInverter.connect()
         print("intialising")
+        
+    def _readData(self):
+            self.thisInverter.connect()
+            
+            if(self.thisInverter.connected == False):
+                return True
+        
+            # pv inverter
+            self.ac_c1 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseACurrent)
+            self.ac_c2 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseBCurrent)
+            self.ac_c3 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseCCurrent)
+            self.ac_v1 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseAVoltage)
+            self.ac_v2 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseBVoltage)
+            self.ac_v3 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseCVoltage)
+            self.pf = self.thisInverter.read(registers.InverterEquipmentRegister.PowerFactor)
+            self.power = self.thisInverter.read(registers.InverterEquipmentRegister.InputPower)
+            self.energy = self.thisInverter.read(registers.InverterEquipmentRegister.AccumulatedEnergyYield)
+            
+            print("power: " + str(self.power))
+            
+            return True
 
     def _update(self):
-        
-            self.thisInverter.connect()
             
             if(self.thisInverter.connected == False):
                 dbusservice['pvinverter.pv0']['/Ac/L1/Power'] = 0
@@ -62,41 +81,50 @@ class modbusQuerry:
                 return True
         
             # pv inverter
-            ac_c1 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseACurrent)
-            dbusservice['pvinverter.pv0']['/Ac/L1/Current'] = ac_c1
-            ac_c2 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseBCurrent)
-            dbusservice['pvinverter.pv0']['/Ac/L2/Current'] = ac_c2
-            ac_c3 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseCCurrent)
-            dbusservice['pvinverter.pv0']['/Ac/L3/Current'] = ac_c3
+            if(self.ac_c1 is not None):
+                dbusservice['pvinverter.pv0']['/Ac/L1/Current'] = self.ac_c1
+            
+            if(self.ac_c2 is not None):
+                dbusservice['pvinverter.pv0']['/Ac/L2/Current'] = self.ac_c2
+            if(self.ac_c3 is not None):
+                dbusservice['pvinverter.pv0']['/Ac/L3/Current'] = self.ac_c3
 
-            ac_v1 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseAVoltage)
+            if(self.ac_v1 is not None):
+                dbusservice['pvinverter.pv0']['/Ac/L1/Voltage'] = self.ac_v1
 
-            dbusservice['pvinverter.pv0']['/Ac/L1/Voltage'] = ac_v1
 
-            ac_v2 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseBVoltage)
+            if(self.ac_v2 is not None):
+                dbusservice['pvinverter.pv0']['/Ac/L2/Voltage'] = self.ac_v2
+            if(self.ac_v3 is not None):
+                dbusservice['pvinverter.pv0']['/Ac/L3/Voltage'] = self.ac_v3
 
-            dbusservice['pvinverter.pv0']['/Ac/L2/Voltage'] = ac_v2
-            ac_v3 = self.thisInverter.read(registers.InverterEquipmentRegister.PhaseCVoltage)
-            dbusservice['pvinverter.pv0']['/Ac/L3/Voltage'] = ac_v3
+            
+            if(self.power is not None): 
+                dbusservice['pvinverter.pv0']['/Ac/Power'] = self.power
 
-            pf = self.thisInverter.read(registers.InverterEquipmentRegister.PowerFactor)
+            if(self.ac_v1  is not None and self.ac_c1 is not None and self.pf is not None):
+                self.ac_p1 = self.ac_v1*self.ac_c1*self.pf
+                if(self.ac_p1 > self.power/3):
+                    self.ac_p1 = self.power/3
+                dbusservice['pvinverter.pv0']['/Ac/L1/Power'] = self.ac_p1
+                
+            if(self.ac_v2 is not None and self.ac_c2 is not None and self.pf is not None): 
+                self.ac_p2 = self.ac_v2*self.ac_c2*self.pf
+                if(self.ac_p2 > self.power/3):
+                    self.ac_p2 = self.power/3
+                dbusservice['pvinverter.pv0']['/Ac/L2/Power'] = self.ac_p2
+                
+            if(self.ac_v3 is not None and self.ac_c3 is not None and self.pf is not None): 
+                self.ac_p3 = self.ac_v3*self.ac_c3*self.pf
+                if(self.ac_p3 > self.power/3):
+                    self.ac_p3 = self.power/3
+                dbusservice['pvinverter.pv0']['/Ac/L3/Power'] = self.ac_p3
 
-            ac_p1 = ac_v1*ac_c1*pf
-            ac_p2 = ac_v2*ac_c2*pf
-            ac_p3 = ac_v3*ac_c3*pf
-
-            dbusservice['pvinverter.pv0']['/Ac/L1/Power'] = ac_p1
-            dbusservice['pvinverter.pv0']['/Ac/L2/Power'] = ac_p2
-            dbusservice['pvinverter.pv0']['/Ac/L3/Power'] = ac_p3
-
-            energy = self.thisInverter.read(registers.InverterEquipmentRegister.AccumulatedEnergyYield)
-
-            dbusservice['pvinverter.pv0']['/Ac/Energy/Forward'] = energy
-            dbusservice['pvinverter.pv0']['/Ac/L1/Energy/Forward'] = round(energy/3.0, 2)
-            dbusservice['pvinverter.pv0']['/Ac/L2/Energy/Forward'] = round(energy/3.0, 2)
-            dbusservice['pvinverter.pv0']['/Ac/L3/Energy/Forward'] = round(energy/3.0, 2)
-
-            dbusservice['pvinverter.pv0']['/Ac/Power'] = self.thisInverter.read(registers.InverterEquipmentRegister.InputPower)
+            if(self.energy is not None): 
+                dbusservice['pvinverter.pv0']['/Ac/Energy/Forward'] = self.energy
+                dbusservice['pvinverter.pv0']['/Ac/L1/Energy/Forward'] = round(self.energy/3.0, 2)
+                dbusservice['pvinverter.pv0']['/Ac/L2/Energy/Forward'] = round(self.energy/3.0, 2)
+                dbusservice['pvinverter.pv0']['/Ac/L3/Energy/Forward'] = round(self.energy/3.0, 2)
             
             return True
     # -----------------------------
@@ -130,7 +158,7 @@ def new_service(base, type, physical, id, instance):
             # https://github.com/victronenergy/venus/wiki/dbus#pv-inverters
             self.add_path('/DeviceInstance', instance)
             self.add_path('/FirmwareVersion', "Unknown")
-            # value used in ac_sensor_bridge.cpp of dbus-cgwacs
+            # value used in self.ac_sensor_bridge.cpp of dbus-cgwacs
             self.add_path('/ProductId', "Unknown")
             self.add_path('/ProductName', "Huawei SUN2000")
             self.add_path('/Ac/Energy/Forward', None, gettextcallback=_kwh)
@@ -174,6 +202,6 @@ mainloop.run()
 
 if __name__ == "__main__":
     try:
-        Querry._update()
+        Querry._readData()
     except Exception as ex:
         print("Issues querying Inverter -ERROR :", ex)

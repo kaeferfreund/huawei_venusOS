@@ -46,10 +46,10 @@ class Sun2000:
             if type(register_value) == ModbusIOException:
                 self.connected = False
                 logging.error("Inverter unit did not respond")
-                raise register_value
+                return None
         except ConnectionException:
             logging.error("A connection error occurred")
-            raise
+            return None
 
         return datatypes.decode(register_value.encode()[1:], register.value.data_type)
 
